@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wengler Road Trip 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:wght@400;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: #f0ede8; min-height: 100vh; }
+    #root { min-height: 100vh; }
+    input[type=checkbox] { accent-color: #e67e22; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useCallback } = React;
+
+    // ── Storage helpers (localStorage) ───────────────────────────────────────
+    function storageGet(key) {
+      try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; }
+    }
+    function storageSet(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+    }
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+    const TRIP_DAYS = [
+      { day:1, date:"Jun 17", short:"St. George, UT", title:"San Tan Valley → St. George, UT", overnight:"Chalet Motel, St. George", budget:370,
+        stops:[
+          {time:"8:00 AM", name:"Depart home", note:"1659 W Bonnie Lane, San Tan Valley, AZ. Fill gas, grab breakfast to go."},
+          {time:"1:30 PM", name:"Hoover Dam Overlook", note:"~305 mi via US-93 N. Quick overlook — views of dam & Lake Mead. Free parking on AZ side."},
+          {time:"4:15 PM", name:"Valley of Fire State Park", note:"~65 mi via Lake Mead scenic road. Drive-through scenic loop — red sandstone formations. $15 entry."},
+          {time:"7:50 PM", name:"ARRIVE: Chalet Motel", note:"664 E St George Blvd, St. George, UT 84770. Clocks +1 hr crossing into Utah."},
+        ]},
+      { day:2, date:"Jun 18", short:"Gardnerville, NV", title:"St. George → Gardnerville, NV", overnight:"Family — Gardnerville", budget:273,
+        stops:[
+          {time:"8:00 AM", name:"Depart St. George", note:"Clocks go back 1 hr entering Nevada."},
+          {time:"9:05 AM", name:"Cathedral Gorge State Park", note:"~155 mi via I-15 S → US-93 N. Eroded clay spires — short walk. $10 entry."},
+          {time:"12:00 PM", name:"Ely, NV — Lunch", note:"~95 mi. Good lunch options downtown; stretch break."},
+          {time:"6:00 PM", name:"ARRIVE: Family — Gardnerville", note:"1198 Kingston Way, Gardnerville, NV 89460. ~312 mi total."},
+        ]},
+      { day:3, date:"Jun 19", short:"Lake Tahoe", title:"Gardnerville / Lake Tahoe — Family Day", overnight:"Family — Gardnerville", budget:216,
+        stops:[
+          {time:"10:00 AM", name:"Depart for Lake Tahoe", note:"~35 mi / ~45 min via Hwy 395 → Hwy 207."},
+          {time:"10:45 AM", name:"Emerald Bay State Park", note:"Overlook, Vikingsholm views, lakeside lunch. $10 parking."},
+          {time:"2:45 PM", name:"Return to Gardnerville", note:"Evening with family."},
+        ]},
+      { day:4, date:"Jun 20", short:"Virginia City", title:"Gardnerville — Local Exploration", overnight:"Family — Gardnerville", budget:209,
+        stops:[
+          {time:"10:00 AM", name:"Local exploration", note:"Carson City historic district (~15 mi), Virginia City (~25 mi), or local hiking."},
+          {time:"—", name:"Afternoon: Relax with family", note:"Unstructured time — rest up before long driving stretch ahead."},
+        ]},
+      { day:5, date:"Jun 21", short:"Medford, OR", title:"Gardnerville → Copco Lake → Medford, OR", overnight:"Family — Medford", budget:182,
+        stops:[
+          {time:"8:00 AM", name:"Depart Gardnerville", note:""},
+          {time:"10:10 AM", name:"Susanville, CA — Coffee stop", note:"~145 mi via Hwy 395 N through Reno. Pack picnic here for Copco Lake."},
+          {time:"2:30 PM", name:"Copco Lake — Picnic Lunch ★", note:"~95 mi from Susanville via Hwy 139. Keith's family history here."},
+          {time:"5:30 PM", name:"ARRIVE: Family — Medford", note:"3531 S Pacific Hwy, Medford, OR 97501."},
+        ]},
+      { day:6, date:"Jun 22", short:"Ashland, OR", title:"Medford / Ashland — Local Day", overnight:"Family — Medford", budget:176,
+        stops:[
+          {time:"10:00 AM", name:"Lithia Park, Ashland", note:"~15 mi south of Medford. Beautiful park; Shakespeare town."},
+          {time:"12:00 PM", name:"Downtown Ashland & Lunch", note:"Explore shops, grab lunch."},
+          {time:"2:30 PM", name:"Return to Medford", note:"3531 S Pacific Hwy."},
+        ]},
+      { day:7, date:"Jun 23", short:"Fresno, CA", title:"Medford → Fresno, CA", overnight:"Hotel Piccadilly, Fresno", budget:348,
+        stops:[
+          {time:"8:00 AM", name:"Depart Medford", note:""},
+          {time:"11:00 AM", name:"Redding, CA — Lunch", note:"~160 mi via I-5 S. Sundial Bridge worth a quick look."},
+          {time:"5:00 PM", name:"ARRIVE: Hotel Piccadilly", note:"2305 W Shaw Ave, Fresno, CA 93711. Call ahead if arriving after 6 PM."},
+        ]},
+      { day:8, date:"Jun 24", short:"Sequoia NP", title:"Sequoia NP → La Habra, CA", overnight:"3rd Avenue Inn, La Habra", budget:517,
+        stops:[
+          {time:"9:00 AM", name:"Depart Fresno", note:""},
+          {time:"10:35 AM", name:"Sequoia NP — Ash Mountain Entrance", note:"~55 mi via CA-99 S → CA-198 E. Pay $35/vehicle; pick up park map."},
+          {time:"11:10 AM", name:"General Sherman Tree & Overlooks", note:"World's largest tree + panoramic overlooks — ~2.5 hrs."},
+          {time:"6:20 PM", name:"ARRIVE: 3rd Avenue Inn", note:"1015 E 3rd Ave, La Habra, CA 90631. Checkout ends at 10 PM."},
+        ]},
+      { day:9, date:"Jun 25", short:"Fallbrook, CA", title:"Fullerton → Fallbrook, CA", overnight:"Family — Fallbrook", budget:170,
+        stops:[
+          {time:"10:00 AM", name:"Depart Fullerton", note:"Relaxed morning with family."},
+          {time:"11:20 AM", name:"Oceanside Pier (optional)", note:"~60 mi via I-5 S. Historic pier; great beach walk."},
+          {time:"11:55 AM", name:"ARRIVE: Family — Fallbrook", note:"4428 Olive Hill Rd, Fallbrook, CA."},
+        ]},
+      { day:10, date:"Jun 26", short:"Thousand Oaks", title:"Fallbrook → Malibu → Thousand Oaks", overnight:"Motel 6, Thousand Oaks", budget:374,
+        stops:[
+          {time:"10:00 AM", name:"Depart Fallbrook", note:""},
+          {time:"10:20 AM", name:"Temecula Wine Country", note:"~20 mi via I-15 N. Old Town & vineyards."},
+          {time:"1:05 PM", name:"Malibu — Coastal Drive & Lunch", note:"~90 mi via PCH. Ocean view lunch."},
+          {time:"2:35 PM", name:"ARRIVE: Motel 6 Thousand Oaks", note:"1516 Newbury Rd, Thousand Oaks, CA 91320. Night 1 of 2."},
+        ]},
+      { day:11, date:"Jun 27", short:"Thousand Oaks", title:"Thousand Oaks — Full Day", overnight:"Motel 6, Thousand Oaks", budget:324,
+        stops:[
+          {time:"10:00 AM", name:"Conejo Valley Botanic Garden", note:"Free admission; 33-acre garden."},
+          {time:"12:30 PM", name:"Option A: Point Mugu State Park", note:"Rugged coastal scenery; easy trails; ~30 min via PCH."},
+          {time:"12:30 PM", name:"Option B: Reagan Presidential Library", note:"Air Force One exhibit; ~15 min from T.O."},
+          {time:"6:00 PM", name:"Dinner in Thousand Oaks", note:"Second night at same hotel."},
+        ]},
+      { day:12, date:"Jun 28", short:"Home!", title:"Thousand Oaks → Home", overnight:"Home", budget:265,
+        stops:[
+          {time:"8:00 AM", name:"Depart Thousand Oaks", note:"Ojai skipped (44 mi wrong direction)."},
+          {time:"12:50 PM", name:"Palm Springs — Lunch", note:"~155 mi via CA-33 S → I-10 E. Stroll Palm Canyon Dr if time allows."},
+          {time:"7:45 PM", name:"ARRIVE HOME", note:"1659 W Bonnie Lane, San Tan Valley, AZ."},
+        ]},
+    ];
+
+    const HOTELS = [
+      { day:"Day 1 — Jun 17", name:"Chalet Motel", addr:"664 E Saint George Blvd, St. George, UT 84770", cin:"Jun 17", cout:"Jun 18", room:"Deluxe Room, 2 Queen Beds", total:"$80.03", status:"pay", conf:"73380281762048", note:"PAY AT PROPERTY · $70.78 room + $9.25 taxes" },
+      { day:"Day 7 — Jun 23", name:"Hotel Piccadilly", addr:"2305 W Shaw Ave, Fresno, CA 93711", cin:"Jun 23", cout:"Jun 24", room:"Executive Room, 2 Queen Beds, Non-Smoking", total:"$118.94", status:"paid", conf:"73380311028424", note:"PREPAID · Visa 7796 · $104.15 + $14.79 taxes" },
+      { day:"Day 8 — Jun 24", name:"3rd Avenue Inn", addr:"1015 E 3rd Ave, La Habra, CA 90631", cin:"Jun 24", cout:"Jun 25", room:"Deluxe Room, 1 King Bed", total:"$85.50", status:"pay", conf:"73380334531668", note:"PAY AT PROPERTY · ⚠ Was budgeted as family stay — confirmed hotel booking" },
+      { day:"Days 10–11 — Jun 26–28", name:"Motel 6 Thousand Oaks", addr:"1516 Newbury Rd, Thousand Oaks, CA 91320", cin:"Jun 26", cout:"Jun 28", room:"Standard Room, 1 Queen Bed, Non-Smoking, Refrigerator", total:"$167.44", status:"paid", conf:"73380339663476", note:"PREPAID · Visa 7796 · $74.61×2 nights + $18.22 taxes · Includes Member Price savings" },
+    ];
+
+    const BUDGET_CATS = [
+      { key:"lodging", label:"Lodging", budget:452 },
+      { key:"gas", label:"Gas", budget:511 },
+      { key:"meals", label:"Meals", budget:1200 },
+      { key:"parks", label:"Park fees", budget:108 },
+      { key:"shopping", label:"Shopping", budget:759 },
+      { key:"snacks", label:"Snacks", budget:243 },
+      { key:"misc", label:"Misc", budget:150 },
+    ];
+
+    const DEFAULT_PRE_TASKS = [
+      { id:"p1", text:"Pick up rental car — Budget, Mesa Gateway Airport (AZA)", due:"Jun 16, 5:30 PM", done:false, fixed:true },
+      { id:"p2", text:"Pack suitcases and load car", due:"Jun 16", done:false, fixed:false },
+      { id:"p3", text:"Fill gas tank in AZ before departing (cheapest on route)", due:"Jun 17", done:false, fixed:false },
+      { id:"p4", text:"Download offline maps for NV, OR, and CA", due:"Jun 14", done:false, fixed:false },
+      { id:"p5", text:"Confirm all hotel reservations", due:"Jun 15", done:false, fixed:false },
+      { id:"p6", text:"Pack cooler with snacks and drinks for road", due:"Jun 16", done:false, fixed:false },
+      { id:"p7", text:"Bring cash/card for pay-at-property hotels (Chalet $80.03 + 3rd Ave Inn $85.50)", due:"Jun 17", done:false, fixed:false },
+      { id:"p8", text:"Pack NPS Passport book for stamps", due:"Jun 16", done:false, fixed:false },
+      { id:"p9", text:"Download GasBuddy app for cheapest stations en route", due:"Jun 14", done:false, fixed:false },
+    ];
+
+    const DEFAULT_POST_TASKS = [
+      { id:"q1", text:"Return rental car — Budget, Mesa Gateway Airport (AZA) · Conf: 40636914US3", due:"Jun 30, 5:30 PM", done:false, fixed:true, urgent:true },
+      { id:"q2", text:"Unpack luggage and do laundry", due:"Jun 29", done:false, fixed:false },
+      { id:"q3", text:"Download and back up all trip photos", due:"Jul 1", done:false, fixed:false },
+      { id:"q4", text:"Write trip notes while memories are fresh", due:"Jul 5", done:false, fixed:false },
+      { id:"q5", text:"Review hotel charges match receipts on credit card", due:"Jul 5", done:false, fixed:false },
+    ];
+
+    const HOTEL_NIGHTS = { 17:"Chalet Motel", 23:"Hotel Piccadilly", 24:"3rd Ave Inn", 26:"Motel 6", 27:"Motel 6" };
+
+    // ── Colour palette ────────────────────────────────────────────────────────
+    const C = {
+      sky:"#e8f4fd", skyBorder:"#a8d4f5",
+      sage:"#e6f2e6", sageBorder:"#a8d4a8",
+      amber:"#fef3e2", amberBorder:"#f5c842",
+      road:"#2c3e50", roadLight:"#34495e",
+      accent:"#e67e22", accentLight:"#f39c12",
+      success:"#27ae60", warning:"#e67e22", danger:"#e74c3c",
+      white:"#ffffff", offwhite:"#fafaf8",
+      border:"rgba(0,0,0,0.08)", borderStrong:"rgba(0,0,0,0.15)",
+      textPrimary:"#1a1a1a", textSecondary:"#666", textMuted:"#999",
+    };
+
+    // ── Styles ────────────────────────────────────────────────────────────────
+    const S = {
+      app:{ fontFamily:"'Bitter', Georgia, serif", fontSize:14, color:C.textPrimary, maxWidth:720, margin:"0 auto", padding:"0 0 40px" },
+      header:{ background:`linear-gradient(135deg, ${C.road} 0%, ${C.roadLight} 100%)`, color:"#fff", padding:"20px 20px 0", borderRadius:"0 0 0 0" },
+      headerTitle:{ fontSize:22, fontWeight:700, letterSpacing:"-0.5px", margin:0, fontFamily:"'Playfair Display', Georgia, serif" },
+      headerSub:{ fontSize:12, opacity:0.7, marginTop:3, fontFamily:"'Bitter', serif" },
+      nav:{ display:"flex", gap:2, padding:"14px 20px 0", borderBottom:`1px solid rgba(255,255,255,0.15)`, overflowX:"auto" },
+      navBtn:(active)=>({ padding:"8px 14px", border:"none", borderBottom: active ? "2px solid #fff" : "2px solid transparent", background:"transparent", color: active ? "#fff" : "rgba(255,255,255,0.6)", cursor:"pointer", fontSize:13, fontFamily:"'Bitter', serif", fontWeight: active ? 600 : 400, marginBottom:-1, whiteSpace:"nowrap" }),
+      body:{ padding:"0 16px" },
+      section:{ paddingTop:16 },
+      card:{ background:C.white, border:`0.5px solid ${C.border}`, borderRadius:10, padding:"14px 16px", marginBottom:10 },
+      cardTitle:{ fontSize:14, fontWeight:700, marginBottom:2, fontFamily:"'Playfair Display', serif" },
+      muted:{ color:C.textSecondary, fontSize:12 },
+      tiny:{ color:C.textMuted, fontSize:11 },
+      badge:(color)=>({ display:"inline-block", fontSize:11, padding:"2px 8px", borderRadius:4, fontWeight:600, background: color==="green"?"#d4edda": color==="yellow"?"#fff3cd": color==="red"?"#f8d7da":"#cce5ff", color: color==="green"?"#155724": color==="yellow"?"#856404": color==="red"?"#721c24":"#004085" }),
+      divider:{ border:"none", borderTop:`0.5px solid ${C.border}`, margin:"10px 0" },
+      progressWrap:{ height:5, background:"#eee", borderRadius:3, overflow:"hidden", flex:1, margin:"0 10px" },
+      progressFill:(pct,over)=>({ height:"100%", width:`${Math.min(100,pct)}%`, background: over ? C.danger : C.accent, borderRadius:3, transition:"width 0.3s" }),
+      btn:{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 12px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6, background:"transparent", color:C.textPrimary, cursor:"pointer", fontSize:13, fontFamily:"'Bitter', serif" },
+      btnPrimary:{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 14px", border:"none", borderRadius:6, background:C.accent, color:"#fff", cursor:"pointer", fontSize:13, fontFamily:"'Bitter', serif", fontWeight:600 },
+      input:{ width:"100%", fontFamily:"'Bitter', serif", fontSize:13, padding:"6px 8px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6 },
+      select:{ width:"100%", fontFamily:"'Bitter', serif", fontSize:13, padding:"6px 8px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6 },
+      label:{ fontSize:11, color:C.textSecondary, display:"block", marginBottom:3 },
+      calGrid:{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 },
+      calHdr:{ textAlign:"center", fontSize:11, color:C.textSecondary, padding:"3px 0", fontWeight:600 },
+      calDay:(type, isToday)=>({ borderRadius:6, padding:"3px 4px", minHeight:52, border: isToday ? `1.5px solid ${C.accent}` : `0.5px solid ${type==="pre"?C.skyBorder:type==="trip"?C.sageBorder:type==="post"?C.amberBorder:"transparent"}`, background: type==="pre"?C.sky:type==="trip"?C.sage:type==="post"?C.amber:type==="om"?"transparent":"#fafafa", cursor:"pointer", opacity: type==="om"?0.3:1 }),
+      calDayNum:{ fontSize:11, fontWeight:700, color:C.textSecondary },
+      pill:(color)=>({ display:"block", fontSize:9, padding:"1px 3px", borderRadius:2, marginTop:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", background: color==="trip"?"#27ae60":color==="hotel"?"#c0392b":color==="car"?"#8e44ad":color==="warn"?"#e67e22":"#2980b9", color:"#fff" }),
+      detailBox:{ background:"#f8f9fa", borderRadius:8, padding:12, marginTop:8 },
+      stopRow:{ display:"flex", gap:10, padding:"6px 0", borderBottom:`0.5px solid ${C.border}` },
+      stopTime:{ fontSize:11, color:C.textSecondary, minWidth:64, paddingTop:1 },
+      stopName:{ fontSize:13, fontWeight:600 },
+      stopNote:{ fontSize:11, color:C.textSecondary, marginTop:2, lineHeight:1.5 },
+      taskRow:{ display:"flex", gap:8, alignItems:"flex-start", padding:"8px 0", borderBottom:`0.5px solid ${C.border}` },
+      taskLabel:(done)=>({ flex:1, fontSize:13, lineHeight:1.5, cursor:"pointer", textDecoration: done?"line-through":"none", color: done?C.textMuted:C.textPrimary }),
+      taskDue:(urgent)=>({ fontSize:11, color: urgent?C.warning:C.textSecondary, whiteSpace:"nowrap", paddingTop:2, fontWeight: urgent?600:400 }),
+      budgetRow:{ display:"flex", alignItems:"center", padding:"8px 0", borderBottom:`0.5px solid ${C.border}` },
+      metricGrid:{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:14 },
+      metric:{ background:"#f8f9fa", borderRadius:8, padding:12 },
+      metricLabel:{ fontSize:11, color:C.textSecondary, marginBottom:2 },
+      metricVal:{ fontSize:20, fontWeight:700, fontFamily:"'Playfair Display', serif" },
+      pRow:{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:`0.5px solid ${C.border}`, fontSize:12 },
+      hotelGrid:{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginTop:8, fontSize:12 },
+      delBtn:{ border:"none", background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:15, padding:"0 2px", lineHeight:1 },
+    };
+
+    // ── Main App ──────────────────────────────────────────────────────────────
+    function App() {
+      const [tab, setTab] = useState("calendar");
+      const [purchases, setPurchases] = useState([]);
+      const [preTasks, setPreTasks] = useState(DEFAULT_PRE_TASKS);
+      const [postTasks, setPostTasks] = useState(DEFAULT_POST_TASKS);
+
+      useEffect(() => {
+        const p = storageGet("wrt_purchases");
+        const pre = storageGet("wrt_pretasks");
+        const post = storageGet("wrt_posttasks");
+        if (p) setPurchases(p);
+        if (pre) setPreTasks(pre);
+        if (post) setPostTasks(post);
+      }, []);
+
+      const savePurchases = useCallback((data) => {
+        setPurchases(data);
+        storageSet("wrt_purchases", data);
+      }, []);
+
+      const savePreTasks = useCallback((data) => {
+        setPreTasks(data);
+        storageSet("wrt_pretasks", data);
+      }, []);
+
+      const savePostTasks = useCallback((data) => {
+        setPostTasks(data);
+        storageSet("wrt_posttasks", data);
+      }, []);
+
+      return (
+        <div style={S.app}>
+          <div style={S.header}>
+            <div style={{ padding:"0 4px" }}>
+              <div style={S.headerTitle}>🚗 Wengler Road Trip 2026</div>
+              <div style={S.headerSub}>June 17–28 · San Tan Valley → NV → OR → CA → Home</div>
+            </div>
+            <div style={S.nav}>
+              {[["calendar","📅 June"],["itinerary","🗺 Itinerary"],["hotels","🏨 Hotels & Car"],["budget","💰 Budget"],["tasks","✅ Tasks"]].map(([id,label]) => (
+                <button key={id} style={S.navBtn(tab===id)} onClick={() => setTab(id)}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={S.body}>
+            {tab === "calendar" && <CalendarTab purchases={purchases} preTasks={preTasks} postTasks={postTasks} />}
+            {tab === "itinerary" && <ItineraryTab purchases={purchases} />}
+            {tab === "hotels" && <HotelsTab />}
+            {tab === "budget" && <BudgetTab purchases={purchases} onSave={savePurchases} />}
+            {tab === "tasks" && <TasksTab preTasks={preTasks} postTasks={postTasks} onSavePre={savePreTasks} onSavePost={savePostTasks} />}
+          </div>
+        </div>
+      );
+    }
+
+    // ── Calendar ──────────────────────────────────────────────────────────────
+    function CalendarTab({ purchases, preTasks, postTasks }) {
+      const [selected, setSelected] = useState(null);
+      const allTasks = [...preTasks, ...postTasks];
+      const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      const firstDay = new Date(2026,5,1).getDay();
+
+      function dayType(d) {
+        if (d >= 8 && d <= 15) return "pre";
+        if (d >= 16 && d <= 28) return "trip";
+        if (d >= 29) return "post";
+        return "normal";
+      }
+
+      function renderDetail() {
+        if (!selected) return null;
+        const d = selected;
+        if (d >= 17 && d <= 28) {
+          const td = TRIP_DAYS[d - 17];
+          const daySpent = purchases.filter(p => p.day == (d-16)).reduce((a,p) => a + parseFloat(p.amt||0), 0);
+          return (
+            <div style={S.detailBox}>
+              <div style={{ fontWeight:700, fontSize:13, marginBottom:6, fontFamily:"'Playfair Display',serif" }}>Day {d-16} — {td.date}: {td.title}</div>
+              {td.stops.map((s,i) => (
+                <div key={i} style={{ ...S.stopRow, ...(i===td.stops.length-1?{borderBottom:"none"}:{}) }}>
+                  <span style={S.stopTime}>{s.time}</span>
+                  <div><div style={S.stopName}>{s.name}</div>{s.note && <div style={S.stopNote}>{s.note}</div>}</div>
+                </div>
+              ))}
+              <div style={{ ...S.muted, marginTop:8 }}>Tonight: {td.overnight} · Budget: ${td.budget}{daySpent > 0 ? ` · Logged: $${daySpent.toFixed(2)}` : ""}</div>
+            </div>
+          );
+        }
+        if (d === 16) return (
+          <div style={S.detailBox}>
+            <div style={{ fontWeight:700, fontSize:13, marginBottom:6 }}>Jun 16 — Car pickup</div>
+            <div style={S.stopRow}>
+              <span style={S.stopTime}>5:30 PM</span>
+              <div><div style={S.stopName}>Pick up rental car — Budget Rent a Car</div><div style={S.stopNote}>Mesa Gateway Airport (AZA) · 6033 S Sossaman Rd, Mesa, AZ · Conf: 40636914US3 · Bring Visa 7796 + driver's license</div></div>
+            </div>
+          </div>
+        );
+        if (d === 30) return (
+          <div style={{ ...S.detailBox, background:"#fff3cd" }}>
+            <div style={{ fontWeight:700, fontSize:13, marginBottom:6, color:C.warning }}>Jun 30 — Car return DEADLINE ⚠</div>
+            <div style={S.stopRow}>
+              <span style={S.stopTime}>5:30 PM</span>
+              <div><div style={{ ...S.stopName, color:C.warning }}>Return rental car — HARD DEADLINE</div><div style={S.stopNote}>Budget Rent a Car · Mesa Gateway Airport (AZA) · Conf: 40636914US3 · +1 866-671-7282</div></div>
+            </div>
+          </div>
+        );
+        const dayTasks = allTasks.filter(t => t.due && t.due.startsWith(`Jun ${d}`));
+        if (dayTasks.length > 0) return (
+          <div style={S.detailBox}>
+            <div style={{ fontWeight:700, fontSize:13, marginBottom:6 }}>Jun {d} — Tasks due</div>
+            {dayTasks.map((t,i) => <div key={i} style={{ fontSize:13, padding:"4px 0", color: t.urgent?C.warning:C.textPrimary }}>{t.urgent ? "⚠ " : ""}{t.text}</div>)}
+          </div>
+        );
+        return null;
+      }
+
+      return (
+        <div style={S.section}>
+          <div style={{ display:"flex", gap:12, marginBottom:10, fontSize:11, flexWrap:"wrap", alignItems:"center" }}>
+            <span><span style={{ display:"inline-block", width:10, height:10, background:C.sky, border:`0.5px solid ${C.skyBorder}`, borderRadius:2, marginRight:4 }}></span>Pre-trip</span>
+            <span><span style={{ display:"inline-block", width:10, height:10, background:C.sage, border:`0.5px solid ${C.sageBorder}`, borderRadius:2, marginRight:4 }}></span>Trip days</span>
+            <span><span style={{ display:"inline-block", width:10, height:10, background:C.amber, border:`0.5px solid ${C.amberBorder}`, borderRadius:2, marginRight:4 }}></span>Post-trip</span>
+            <span style={S.muted}>Tap a day for details</span>
+          </div>
+          <div style={S.calGrid}>
+            {days.map(d => <div key={d} style={S.calHdr}>{d}</div>)}
+            {Array.from({length:firstDay}).map((_,i) => (
+              <div key={`pre-${i}`} style={S.calDay("om", false)}>
+                <div style={S.calDayNum}>{31 - firstDay + i + 1}</div>
+              </div>
+            ))}
+            {Array.from({length:30}).map((_,i) => {
+              const d = i + 1;
+              const type = dayType(d);
+              const isToday = d === 8;
+              const dayTasks = allTasks.filter(t => t.due && t.due.startsWith(`Jun ${d}`));
+              return (
+                <div key={d} style={S.calDay(type, isToday)} onClick={() => setSelected(selected===d ? null : d)}>
+                  <div style={{ ...S.calDayNum, color: isToday ? C.accent : C.textSecondary }}>{d}</div>
+                  {d === 16 && <span style={S.pill("car")}>Car pickup</span>}
+                  {d === 30 && <span style={S.pill("warn")}>Car return</span>}
+                  {d >= 17 && d <= 28 && <span style={S.pill("trip")}>Day {d-16}: {TRIP_DAYS[d-17]?.short}</span>}
+                  {HOTEL_NIGHTS[d] && <span style={S.pill("hotel")}>{HOTEL_NIGHTS[d]}</span>}
+                  {dayTasks.slice(0,1).map((t,ti) => <span key={ti} style={S.pill(t.urgent?"warn":"blue")}>{t.text.substring(0,16)}</span>)}
+                </div>
+              );
+            })}
+            {Array.from({length: 42 - firstDay - 30}).map((_,i) => (
+              <div key={`post-${i}`} style={S.calDay("om", false)}>
+                <div style={S.calDayNum}>{i+1}</div>
+              </div>
+            ))}
+          </div>
+          {renderDetail()}
+        </div>
+      );
+    }
+
+    // ── Itinerary ─────────────────────────────────────────────────────────────
+    function ItineraryTab({ purchases }) {
+      const [activeDay, setActiveDay] = useState(1);
+      const td = TRIP_DAYS[activeDay - 1];
+      const hotelMap = { 1:"Chalet Motel — PAY AT PROPERTY ($80.03)", 7:"Hotel Piccadilly — PREPAID Visa 7796 ($118.94)", 8:"3rd Avenue Inn — PAY AT PROPERTY ($85.50)", 10:"Motel 6 — PREPAID Visa 7796 (Night 1/2)", 11:"Motel 6 — PREPAID Visa 7796 (Night 2/2)" };
+      const daySpent = purchases.filter(p => p.day == activeDay).reduce((a,p) => a + parseFloat(p.amt||0), 0);
+
+      return (
+        <div style={S.section}>
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:12 }}>
+            {TRIP_DAYS.map(t => (
+              <button key={t.day} onClick={() => setActiveDay(t.day)}
+                style={{ padding:"4px 9px", border:`0.5px solid ${activeDay===t.day?C.accent:C.borderStrong}`, borderRadius:5, background: activeDay===t.day?C.accent:"transparent", color: activeDay===t.day?"#fff":C.textSecondary, cursor:"pointer", fontSize:12, fontFamily:"'Bitter',serif", fontWeight: activeDay===t.day?700:400 }}>
+                {t.day}
+              </button>
+            ))}
+          </div>
+          <div style={S.card}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:6 }}>
+              <div>
+                <div style={S.cardTitle}>Day {td.day} — {td.date}</div>
+                <div style={S.muted}>{td.title}</div>
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:13, fontWeight:700 }}>Budget: ${td.budget}</div>
+                {daySpent > 0 && <div style={S.muted}>Logged: ${daySpent.toFixed(2)}</div>}
+                <div style={S.muted}>{td.overnight}</div>
+              </div>
+            </div>
+            {hotelMap[activeDay] && (
+              <div style={{ marginTop:8 }}>
+                <span style={S.badge([7,10,11].includes(activeDay) ? "green" : "yellow")}>{hotelMap[activeDay]}</span>
+              </div>
+            )}
+            <hr style={S.divider} />
+            {td.stops.map((s,i) => (
+              <div key={i} style={{ ...S.stopRow, ...(i===td.stops.length-1?{borderBottom:"none"}:{}) }}>
+                <span style={S.stopTime}>{s.time}</span>
+                <div><div style={S.stopName}>{s.name}</div>{s.note && <div style={S.stopNote}>{s.note}</div>}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ── Hotels & Car ──────────────────────────────────────────────────────────
+    function HotelsTab() {
+      return (
+        <div style={S.section}>
+          <div style={S.card}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:6 }}>
+              <div>
+                <div style={S.cardTitle}>🚗 Budget Rent a Car — Hyundai Venue or similar</div>
+                <div style={S.muted}>Mesa Gateway Airport (AZA) · 6033 S Sossaman Rd, Mesa, AZ 85212</div>
+              </div>
+              <span style={S.badge("green")}>Prepaid — Visa 7796</span>
+            </div>
+            <div style={S.hotelGrid}>
+              <div><div style={S.tiny}>Pick-up</div><div style={{ fontWeight:600, fontSize:13 }}>Tue, Jun 16 at 5:30 PM</div></div>
+              <div><div style={S.tiny}>Drop-off</div><div style={{ fontWeight:600, fontSize:13, color:C.warning }}>Tue, Jun 30 at 5:30 PM ⚠</div></div>
+              <div><div style={S.tiny}>Confirmation #</div><div style={{ fontWeight:600, fontSize:13 }}>40636914US3</div></div>
+              <div><div style={S.tiny}>Priceline trip #</div><div style={{ fontWeight:600, fontSize:13 }}>272-640-843-96</div></div>
+              <div><div style={S.tiny}>Driver</div><div style={{ fontWeight:600, fontSize:13 }}>Keith Wengler</div></div>
+              <div><div style={S.tiny}>Total paid</div><div style={{ fontWeight:600, fontSize:13 }}>$560.37</div></div>
+              <div><div style={S.tiny}>Budget phone</div><div style={{ fontWeight:600, fontSize:13 }}>+1 866-671-7282</div></div>
+              <div><div style={S.tiny}>Mileage</div><div style={{ fontWeight:600, fontSize:13 }}>Unlimited</div></div>
+            </div>
+            <div style={{ marginTop:10, background:"#fff3cd", borderRadius:6, padding:"8px 10px", fontSize:12, color:"#856404" }}>
+              Bring Visa 7796 + driver's license at counter. No debit/cash for security deposit. Return by Jun 30, 5:30 PM sharp or entire prepaid amount may be forfeited.
+            </div>
+          </div>
+          <div style={{ fontSize:16, fontWeight:700, margin:"12px 0 8px", fontFamily:"'Playfair Display',serif" }}>Hotels</div>
+          {HOTELS.map((h,i) => (
+            <div key={i} style={S.card}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:6 }}>
+                <div>
+                  <div style={S.cardTitle}>{h.name}</div>
+                  <div style={S.muted}>{h.addr}</div>
+                  <div style={{ ...S.tiny, marginTop:2 }}>{h.day}</div>
+                </div>
+                <span style={S.badge(h.status==="paid"?"green":"yellow")}>{h.status==="paid"?"Prepaid — Visa 7796":"Pay at property"}</span>
+              </div>
+              <div style={S.hotelGrid}>
+                <div><div style={S.tiny}>Check-in</div><div style={{ fontWeight:600, fontSize:13 }}>{h.cin}</div></div>
+                <div><div style={S.tiny}>Check-out</div><div style={{ fontWeight:600, fontSize:13 }}>{h.cout}</div></div>
+                <div><div style={S.tiny}>Room</div><div style={{ fontWeight:600, fontSize:13 }}>{h.room}</div></div>
+                <div><div style={S.tiny}>Total</div><div style={{ fontWeight:600, fontSize:13 }}>{h.total}</div></div>
+              </div>
+              <div style={{ ...S.tiny, marginTop:8 }}>{h.note} · Hotels.com: {h.conf}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ── Budget ────────────────────────────────────────────────────────────────
+    function BudgetTab({ purchases, onSave }) {
+      const [showForm, setShowForm] = useState(false);
+      const [pCat, setPCat] = useState("meals");
+      const [pAmt, setPAmt] = useState("");
+      const [pDesc, setPDesc] = useState("");
+      const [pDay, setPDay] = useState("");
+
+      const spent = {};
+      BUDGET_CATS.forEach(c => spent[c.key] = 0);
+      purchases.forEach(p => { if (spent[p.cat] !== undefined) spent[p.cat] += parseFloat(p.amt||0); });
+      const totalBudget = 3423;
+      const totalSpent = Object.values(spent).reduce((a,b) => a+b, 0);
+      const totalRem = totalBudget - totalSpent;
+
+      function addPurchase() {
+        if (!pAmt || parseFloat(pAmt) <= 0) return;
+        const newP = { day:pDay, cat:pCat, amt:parseFloat(pAmt).toFixed(2), desc:pDesc, ts:new Date().toLocaleString() };
+        onSave([...purchases, newP]);
+        setPAmt(""); setPDesc(""); setShowForm(false);
+      }
+
+      function del(i) {
+        const next = [...purchases]; next.splice(i, 1);
+        onSave(next);
+      }
+
+      return (
+        <div style={S.section}>
+          <div style={S.metricGrid}>
+            <div style={S.metric}><div style={S.metricLabel}>Total budget</div><div style={S.metricVal}>${totalBudget.toLocaleString()}</div></div>
+            <div style={S.metric}><div style={S.metricLabel}>Spent so far</div><div style={{ ...S.metricVal, color: totalSpent > totalBudget ? C.danger : C.textPrimary }}>${totalSpent.toFixed(2)}</div></div>
+            <div style={S.metric}><div style={S.metricLabel}>Remaining</div><div style={{ ...S.metricVal, color: totalRem < 0 ? C.danger : C.success }}>${totalRem.toFixed(2)}</div></div>
+          </div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+            <div style={{ fontSize:15, fontWeight:700, fontFamily:"'Playfair Display',serif" }}>By category</div>
+            <button style={S.btnPrimary} onClick={() => setShowForm(!showForm)}>+ Log purchase</button>
+          </div>
+          {showForm && (
+            <div style={{ background:"#f8f9fa", borderRadius:8, padding:12, marginBottom:12 }}>
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                <div style={{ flex:1, minWidth:110 }}>
+                  <label style={S.label}>Category</label>
+                  <select style={S.select} value={pCat} onChange={e => setPCat(e.target.value)}>
+                    {BUDGET_CATS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ width:85 }}>
+                  <label style={S.label}>Amount ($)</label>
+                  <input style={S.input} type="number" placeholder="0.00" value={pAmt} onChange={e => setPAmt(e.target.value)} min="0" step="0.01" />
+                </div>
+                <div style={{ flex:2, minWidth:130 }}>
+                  <label style={S.label}>Description</label>
+                  <input style={S.input} type="text" placeholder="e.g. Subway lunch" value={pDesc} onChange={e => setPDesc(e.target.value)} />
+                </div>
+                <div style={{ width:72 }}>
+                  <label style={S.label}>Day</label>
+                  <select style={S.select} value={pDay} onChange={e => setPDay(e.target.value)}>
+                    <option value="">—</option>
+                    <option value="Pre">Pre</option>
+                    {TRIP_DAYS.map(t => <option key={t.day} value={t.day}>Day {t.day}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginTop:10, display:"flex", gap:8 }}>
+                <button style={S.btnPrimary} onClick={addPurchase}>Add</button>
+                <button style={S.btn} onClick={() => setShowForm(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
+          <div style={S.card}>
+            {BUDGET_CATS.map(c => {
+              const s = spent[c.key] || 0, b = c.budget, pct = (s/b)*100, over = s > b;
+              return (
+                <div key={c.key} style={S.budgetRow}>
+                  <div style={{ minWidth:72, fontSize:13 }}>{c.label}</div>
+                  <div style={S.progressWrap}><div style={S.progressFill(pct, over)} /></div>
+                  <div style={{ textAlign:"right", minWidth:95 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color: over ? C.danger : C.textPrimary }}>${s.toFixed(2)} / ${b}</div>
+                    <div style={{ fontSize:11, color: over ? C.danger : C.textSecondary }}>${(b-s).toFixed(2)} {over?"over":"left"}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop:12, fontSize:15, fontWeight:700, marginBottom:8, fontFamily:"'Playfair Display',serif" }}>Recent purchases</div>
+          <div style={S.card}>
+            {purchases.length === 0
+              ? <div style={S.muted}>No purchases yet. Tap "Log purchase" to start tracking.</div>
+              : [...purchases].reverse().map((p,ri) => {
+                  const i = purchases.length - 1 - ri;
+                  const bc = BUDGET_CATS.find(c => c.key === p.cat);
+                  return (
+                    <div key={i} style={{ ...S.pRow, ...(ri===purchases.length-1?{borderBottom:"none"}:{}) }}>
+                      <span style={{ ...S.muted, minWidth:38 }}>{p.day ? `Day ${p.day}` : ""}</span>
+                      <span style={{ flex:1, margin:"0 8px" }}>{p.desc || "—"} <span style={S.muted}>{bc?.label}</span></span>
+                      <span style={{ fontWeight:700 }}>${parseFloat(p.amt).toFixed(2)}</span>
+                      <button style={S.delBtn} onClick={() => del(i)}>×</button>
+                    </div>
+                  );
+                })
+            }
+          </div>
+        </div>
+      );
+    }
+
+    // ── Tasks ─────────────────────────────────────────────────────────────────
+    function TasksTab({ preTasks, postTasks, onSavePre, onSavePost }) {
+      const [activeTab, setActiveTab] = useState("pre");
+      const [newText, setNewText] = useState("");
+      const [newDue, setNewDue] = useState("");
+
+      const tasks = activeTab === "pre" ? preTasks : postTasks;
+      const onSave = activeTab === "pre" ? onSavePre : onSavePost;
+      const done = tasks.filter(t => t.done).length;
+
+      function toggle(i) {
+        const next = tasks.map((t,idx) => idx===i ? {...t, done:!t.done} : t);
+        onSave(next);
+      }
+
+      function del(i) {
+        const next = tasks.filter((_,idx) => idx !== i);
+        onSave(next);
+      }
+
+      function add() {
+        if (!newText.trim()) return;
+        const next = [...tasks, { id:"u"+Date.now(), text:newText.trim(), due:newDue.trim(), done:false, fixed:false }];
+        onSave(next);
+        setNewText(""); setNewDue("");
+      }
+
+      return (
+        <div style={S.section}>
+          <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+            {[["pre","📋 Pre-trip"],["post","🏠 Post-trip"]].map(([id,label]) => (
+              <button key={id} onClick={() => setActiveTab(id)}
+                style={{ ...S.btn, borderColor: activeTab===id ? C.accent : C.borderStrong, fontWeight: activeTab===id ? 700 : 400, color: activeTab===id ? C.accent : C.textPrimary }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+            <div style={{ fontSize:15, fontWeight:700, fontFamily:"'Playfair Display',serif" }}>{activeTab==="pre" ? "Pre-trip tasks" : "Post-trip tasks"}</div>
+            <span style={S.muted}>{done}/{tasks.length} complete</span>
+          </div>
+          <div style={S.card}>
+            {tasks.map((t,i) => (
+              <div key={t.id} style={{ ...S.taskRow, ...(i===tasks.length-1?{borderBottom:"none"}:{}) }}>
+                <input type="checkbox" checked={t.done} onChange={() => toggle(i)} style={{ marginTop:2, width:14, height:14, cursor:"pointer", flexShrink:0 }} />
+                <label style={S.taskLabel(t.done)} onClick={() => toggle(i)}>{t.text}</label>
+                {t.due && <span style={S.taskDue(t.urgent)}>{t.due}</span>}
+                {!t.fixed && <button style={S.delBtn} onClick={() => del(i)}>×</button>}
+              </div>
+            ))}
+          </div>
+          <div style={{ background:"#f8f9fa", borderRadius:8, padding:12, marginTop:10 }}>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+              <div style={{ flex:2, minWidth:160 }}>
+                <label style={S.label}>New task</label>
+                <input style={S.input} type="text" placeholder="Task description..." value={newText} onChange={e => setNewText(e.target.value)} onKeyDown={e => e.key==="Enter" && add()} />
+              </div>
+              <div style={{ width:130 }}>
+                <label style={S.label}>Due date (optional)</label>
+                <input style={S.input} type="text" placeholder="e.g. Jun 15" value={newDue} onChange={e => setNewDue(e.target.value)} />
+              </div>
+            </div>
+            <div style={{ marginTop:8 }}>
+              <button style={S.btnPrimary} onClick={add}>+ Add task</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
