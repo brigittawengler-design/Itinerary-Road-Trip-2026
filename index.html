@@ -22,7 +22,6 @@
   <script type="text/babel" data-presets="react">
     const { useState, useEffect, useCallback } = React;
 
-    // ── Storage helpers (localStorage) ───────────────────────────────────────
     function storageGet(key) {
       try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; }
     }
@@ -30,7 +29,6 @@
       try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
     }
 
-    // ── Data ─────────────────────────────────────────────────────────────────
     const TRIP_DAYS = [
       { day:1, date:"Jun 17", short:"St. George, UT", title:"San Tan Valley → St. George, UT", overnight:"Chalet Motel, St. George", budget:370,
         stops:[
@@ -150,7 +148,6 @@
 
     const HOTEL_NIGHTS = { 17:"Chalet Motel", 23:"Hotel Piccadilly", 24:"3rd Ave Inn", 26:"Motel 6", 27:"Motel 6" };
 
-    // ── Colour palette ────────────────────────────────────────────────────────
     const C = {
       sky:"#e8f4fd", skyBorder:"#a8d4f5",
       sage:"#e6f2e6", sageBorder:"#a8d4a8",
@@ -163,14 +160,13 @@
       textPrimary:"#1a1a1a", textSecondary:"#666", textMuted:"#999",
     };
 
-    // ── Styles ────────────────────────────────────────────────────────────────
     const S = {
       app:{ fontFamily:"'Bitter', Georgia, serif", fontSize:14, color:C.textPrimary, maxWidth:720, margin:"0 auto", padding:"0 0 40px" },
-      header:{ background:`linear-gradient(135deg, ${C.road} 0%, ${C.roadLight} 100%)`, color:"#fff", padding:"20px 20px 0", borderRadius:"0 0 0 0" },
+      header:{ background:`linear-gradient(135deg, ${C.road} 0%, ${C.roadLight} 100%)`, color:"#fff", padding:"20px 20px 0" },
       headerTitle:{ fontSize:22, fontWeight:700, letterSpacing:"-0.5px", margin:0, fontFamily:"'Playfair Display', Georgia, serif" },
-      headerSub:{ fontSize:12, opacity:0.7, marginTop:3, fontFamily:"'Bitter', serif" },
-      nav:{ display:"flex", gap:2, padding:"14px 20px 0", borderBottom:`1px solid rgba(255,255,255,0.15)`, overflowX:"auto" },
-      navBtn:(active)=>({ padding:"8px 14px", border:"none", borderBottom: active ? "2px solid #fff" : "2px solid transparent", background:"transparent", color: active ? "#fff" : "rgba(255,255,255,0.6)", cursor:"pointer", fontSize:13, fontFamily:"'Bitter', serif", fontWeight: active ? 600 : 400, marginBottom:-1, whiteSpace:"nowrap" }),
+      headerSub:{ fontSize:12, opacity:0.7, marginTop:3 },
+      nav:{ display:"flex", gap:2, padding:"14px 20px 0", borderBottom:"1px solid rgba(255,255,255,0.15)", overflowX:"auto" },
+      navBtn:(active)=>({ padding:"8px 14px", border:"none", borderBottom: active ? "2px solid #fff" : "2px solid transparent", background:"transparent", color: active ? "#fff" : "rgba(255,255,255,0.6)", cursor:"pointer", fontSize:13, fontWeight: active ? 600 : 400, marginBottom:-1, whiteSpace:"nowrap" }),
       body:{ padding:"0 16px" },
       section:{ paddingTop:16 },
       card:{ background:C.white, border:`0.5px solid ${C.border}`, borderRadius:10, padding:"14px 16px", marginBottom:10 },
@@ -181,14 +177,14 @@
       divider:{ border:"none", borderTop:`0.5px solid ${C.border}`, margin:"10px 0" },
       progressWrap:{ height:5, background:"#eee", borderRadius:3, overflow:"hidden", flex:1, margin:"0 10px" },
       progressFill:(pct,over)=>({ height:"100%", width:`${Math.min(100,pct)}%`, background: over ? C.danger : C.accent, borderRadius:3, transition:"width 0.3s" }),
-      btn:{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 12px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6, background:"transparent", color:C.textPrimary, cursor:"pointer", fontSize:13, fontFamily:"'Bitter', serif" },
-      btnPrimary:{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 14px", border:"none", borderRadius:6, background:C.accent, color:"#fff", cursor:"pointer", fontSize:13, fontFamily:"'Bitter', serif", fontWeight:600 },
-      input:{ width:"100%", fontFamily:"'Bitter', serif", fontSize:13, padding:"6px 8px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6 },
-      select:{ width:"100%", fontFamily:"'Bitter', serif", fontSize:13, padding:"6px 8px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6 },
+      btn:{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 12px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6, background:"transparent", color:C.textPrimary, cursor:"pointer", fontSize:13 },
+      btnPrimary:{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 14px", border:"none", borderRadius:6, background:C.accent, color:"#fff", cursor:"pointer", fontSize:13, fontWeight:600 },
+      input:{ width:"100%", fontSize:13, padding:"6px 8px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6 },
+      select:{ width:"100%", fontSize:13, padding:"6px 8px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6 },
       label:{ fontSize:11, color:C.textSecondary, display:"block", marginBottom:3 },
       calGrid:{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 },
       calHdr:{ textAlign:"center", fontSize:11, color:C.textSecondary, padding:"3px 0", fontWeight:600 },
-      calDay:(type, isToday)=>({ borderRadius:6, padding:"3px 4px", minHeight:52, border: isToday ? `1.5px solid ${C.accent}` : `0.5px solid ${type==="pre"?C.skyBorder:type==="trip"?C.sageBorder:type==="post"?C.amberBorder:"transparent"}`, background: type==="pre"?C.sky:type==="trip"?C.sage:type==="post"?C.amber:type==="om"?"transparent":"#fafafa", cursor:"pointer", opacity: type==="om"?0.3:1 }),
+      calDay:(type,isToday)=>({ borderRadius:6, padding:"3px 4px", minHeight:52, border: isToday ? `1.5px solid ${C.accent}` : `0.5px solid ${type==="pre"?C.skyBorder:type==="trip"?C.sageBorder:type==="post"?C.amberBorder:"transparent"}`, background: type==="pre"?C.sky:type==="trip"?C.sage:type==="post"?C.amber:type==="om"?"transparent":"#fafafa", cursor:"pointer", opacity: type==="om"?0.3:1 }),
       calDayNum:{ fontSize:11, fontWeight:700, color:C.textSecondary },
       pill:(color)=>({ display:"block", fontSize:9, padding:"1px 3px", borderRadius:2, marginTop:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", background: color==="trip"?"#27ae60":color==="hotel"?"#c0392b":color==="car"?"#8e44ad":color==="warn"?"#e67e22":"#2980b9", color:"#fff" }),
       detailBox:{ background:"#f8f9fa", borderRadius:8, padding:12, marginTop:8 },
@@ -209,7 +205,6 @@
       delBtn:{ border:"none", background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:15, padding:"0 2px", lineHeight:1 },
     };
 
-    // ── Main App ──────────────────────────────────────────────────────────────
     function App() {
       const [tab, setTab] = useState("calendar");
       const [purchases, setPurchases] = useState([]);
@@ -225,20 +220,9 @@
         if (post) setPostTasks(post);
       }, []);
 
-      const savePurchases = useCallback((data) => {
-        setPurchases(data);
-        storageSet("wrt_purchases", data);
-      }, []);
-
-      const savePreTasks = useCallback((data) => {
-        setPreTasks(data);
-        storageSet("wrt_pretasks", data);
-      }, []);
-
-      const savePostTasks = useCallback((data) => {
-        setPostTasks(data);
-        storageSet("wrt_posttasks", data);
-      }, []);
+      const savePurchases = useCallback((data) => { setPurchases(data); storageSet("wrt_purchases", data); }, []);
+      const savePreTasks = useCallback((data) => { setPreTasks(data); storageSet("wrt_pretasks", data); }, []);
+      const savePostTasks = useCallback((data) => { setPostTasks(data); storageSet("wrt_posttasks", data); }, []);
 
       return (
         <div style={S.app}>
@@ -264,7 +248,6 @@
       );
     }
 
-    // ── Calendar ──────────────────────────────────────────────────────────────
     function CalendarTab({ purchases, preTasks, postTasks }) {
       const [selected, setSelected] = useState(null);
       const allTasks = [...preTasks, ...postTasks];
@@ -367,7 +350,6 @@
       );
     }
 
-    // ── Itinerary ─────────────────────────────────────────────────────────────
     function ItineraryTab({ purchases }) {
       const [activeDay, setActiveDay] = useState(1);
       const td = TRIP_DAYS[activeDay - 1];
@@ -379,7 +361,7 @@
           <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:12 }}>
             {TRIP_DAYS.map(t => (
               <button key={t.day} onClick={() => setActiveDay(t.day)}
-                style={{ padding:"4px 9px", border:`0.5px solid ${activeDay===t.day?C.accent:C.borderStrong}`, borderRadius:5, background: activeDay===t.day?C.accent:"transparent", color: activeDay===t.day?"#fff":C.textSecondary, cursor:"pointer", fontSize:12, fontFamily:"'Bitter',serif", fontWeight: activeDay===t.day?700:400 }}>
+                style={{ padding:"4px 9px", border:`0.5px solid ${activeDay===t.day?C.accent:C.borderStrong}`, borderRadius:5, background: activeDay===t.day?C.accent:"transparent", color: activeDay===t.day?"#fff":C.textSecondary, cursor:"pointer", fontSize:12, fontWeight: activeDay===t.day?700:400 }}>
                 {t.day}
               </button>
             ))}
@@ -413,7 +395,6 @@
       );
     }
 
-    // ── Hotels & Car ──────────────────────────────────────────────────────────
     function HotelsTab() {
       return (
         <div style={S.section}>
@@ -463,7 +444,6 @@
       );
     }
 
-    // ── Budget ────────────────────────────────────────────────────────────────
     function BudgetTab({ purchases, onSave }) {
       const [showForm, setShowForm] = useState(false);
       const [pCat, setPCat] = useState("meals");
@@ -570,7 +550,6 @@
       );
     }
 
-    // ── Tasks ─────────────────────────────────────────────────────────────────
     function TasksTab({ preTasks, postTasks, onSavePre, onSavePost }) {
       const [activeTab, setActiveTab] = useState("pre");
       const [newText, setNewText] = useState("");
