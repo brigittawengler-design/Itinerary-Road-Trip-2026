@@ -20,17 +20,39 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
-    const { useState, useEffect, useCallback } = React;
+    const { useState, useEffect, useCallback, useRef } = React;
 
-    // ── Storage helpers (localStorage) ───────────────────────────────────────
-    function storageGet(key) {
-      try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; }
-    }
-    function storageSet(key, val) {
-      try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+    // ── GitHub sync ───────────────────────────────────────────────────────────
+    const GH_OWNER = "brigittawengler-design";
+    const GH_REPO  = "Itinerary-Road-Trip-2026";
+    const GH_FILE  = "trip-data.json";
+    const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+
+    function lsGet(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } }
+    function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+
+    async function ghRead() {
+      const r = await fetch(GH_API + "?t=" + Date.now(), { headers: { Accept: "application/vnd.github+json" } });
+      if (!r.ok) return null;
+      const j = await r.json();
+      const text = atob(j.content.replace(/\n/g, ""));
+      return { data: JSON.parse(text), sha: j.sha };
     }
 
-    // ── Data ─────────────────────────────────────────────────────────────────
+    async function ghWrite(token, sha, data) {
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+      const body = { message: "Trip data update", content, ...(sha ? { sha } : {}) };
+      const r = await fetch(GH_API, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/vnd.github+json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.status); }
+      const j = await r.json();
+      return j.content.sha;
+    }
+
+    // ── Data ──────────────────────────────────────────────────────────────────
     const TRIP_DAYS = [
       { day:1, date:"Jun 17", short:"St. George, UT", title:"San Tan Valley → St. George, UT", overnight:"Chalet Motel, St. George", budget:370,
         stops:[
@@ -150,7 +172,6 @@
 
     const HOTEL_NIGHTS = { 17:"Chalet Motel", 23:"Hotel Piccadilly", 24:"3rd Ave Inn", 26:"Motel 6", 27:"Motel 6" };
 
-    // ── Colour palette ────────────────────────────────────────────────────────
     const C = {
       sky:"#e8f4fd", skyBorder:"#a8d4f5",
       sage:"#e6f2e6", sageBorder:"#a8d4a8",
@@ -163,14 +184,13 @@
       textPrimary:"#1a1a1a", textSecondary:"#666", textMuted:"#999",
     };
 
-    // ── Styles ────────────────────────────────────────────────────────────────
     const S = {
       app:{ fontFamily:"'Bitter', Georgia, serif", fontSize:14, color:C.textPrimary, maxWidth:720, margin:"0 auto", padding:"0 0 40px" },
-      header:{ background:`linear-gradient(135deg, ${C.road} 0%, ${C.roadLight} 100%)`, color:"#fff", padding:"20px 20px 0", borderRadius:"0 0 0 0" },
+      header:{ background:`linear-gradient(135deg, ${C.road} 0%, ${C.roadLight} 100%)`, color:"#fff", padding:"20px 20px 0" },
       headerTitle:{ fontSize:22, fontWeight:700, letterSpacing:"-0.5px", margin:0, fontFamily:"'Playfair Display', Georgia, serif" },
-      headerSub:{ fontSize:12, opacity:0.7, marginTop:3, fontFamily:"'Bitter', serif" },
-      nav:{ display:"flex", gap:2, padding:"14px 20px 0", borderBottom:`1px solid rgba(255,255,255,0.15)`, overflowX:"auto" },
-      navBtn:(active)=>({ padding:"8px 14px", border:"none", borderBottom: active ? "2px solid #fff" : "2px solid transparent", background:"transparent", color: active ? "#fff" : "rgba(255,255,255,0.6)", cursor:"pointer", fontSize:13, fontFamily:"'Bitter', serif", fontWeight: active ? 600 : 400, marginBottom:-1, whiteSpace:"nowrap" }),
+      headerSub:{ fontSize:12, opacity:0.7, marginTop:3 },
+      nav:{ display:"flex", gap:2, padding:"14px 20px 0", borderBottom:"1px solid rgba(255,255,255,0.15)", overflowX:"auto" },
+      navBtn:(active)=>({ padding:"8px 14px", border:"none", borderBottom: active ? "2px solid #fff" : "2px solid transparent", background:"transparent", color: active ? "#fff" : "rgba(255,255,255,0.6)", cursor:"pointer", fontSize:13, fontWeight: active ? 600 : 400, marginBottom:-1, whiteSpace:"nowrap" }),
       body:{ padding:"0 16px" },
       section:{ paddingTop:16 },
       card:{ background:C.white, border:`0.5px solid ${C.border}`, borderRadius:10, padding:"14px 16px", marginBottom:10 },
@@ -181,14 +201,14 @@
       divider:{ border:"none", borderTop:`0.5px solid ${C.border}`, margin:"10px 0" },
       progressWrap:{ height:5, background:"#eee", borderRadius:3, overflow:"hidden", flex:1, margin:"0 10px" },
       progressFill:(pct,over)=>({ height:"100%", width:`${Math.min(100,pct)}%`, background: over ? C.danger : C.accent, borderRadius:3, transition:"width 0.3s" }),
-      btn:{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 12px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6, background:"transparent", color:C.textPrimary, cursor:"pointer", fontSize:13, fontFamily:"'Bitter', serif" },
-      btnPrimary:{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 14px", border:"none", borderRadius:6, background:C.accent, color:"#fff", cursor:"pointer", fontSize:13, fontFamily:"'Bitter', serif", fontWeight:600 },
-      input:{ width:"100%", fontFamily:"'Bitter', serif", fontSize:13, padding:"6px 8px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6 },
-      select:{ width:"100%", fontFamily:"'Bitter', serif", fontSize:13, padding:"6px 8px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6 },
+      btn:{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 12px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6, background:"transparent", color:C.textPrimary, cursor:"pointer", fontSize:13 },
+      btnPrimary:{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 14px", border:"none", borderRadius:6, background:C.accent, color:"#fff", cursor:"pointer", fontSize:13, fontWeight:600 },
+      input:{ width:"100%", fontSize:13, padding:"6px 8px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6, fontFamily:"inherit" },
+      select:{ width:"100%", fontSize:13, padding:"6px 8px", border:`0.5px solid ${C.borderStrong}`, borderRadius:6, fontFamily:"inherit" },
       label:{ fontSize:11, color:C.textSecondary, display:"block", marginBottom:3 },
       calGrid:{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 },
       calHdr:{ textAlign:"center", fontSize:11, color:C.textSecondary, padding:"3px 0", fontWeight:600 },
-      calDay:(type, isToday)=>({ borderRadius:6, padding:"3px 4px", minHeight:52, border: isToday ? `1.5px solid ${C.accent}` : `0.5px solid ${type==="pre"?C.skyBorder:type==="trip"?C.sageBorder:type==="post"?C.amberBorder:"transparent"}`, background: type==="pre"?C.sky:type==="trip"?C.sage:type==="post"?C.amber:type==="om"?"transparent":"#fafafa", cursor:"pointer", opacity: type==="om"?0.3:1 }),
+      calDay:(type,isToday)=>({ borderRadius:6, padding:"3px 4px", minHeight:52, border: isToday ? `1.5px solid ${C.accent}` : `0.5px solid ${type==="pre"?C.skyBorder:type==="trip"?C.sageBorder:type==="post"?C.amberBorder:"transparent"}`, background: type==="pre"?C.sky:type==="trip"?C.sage:type==="post"?C.amber:type==="om"?"transparent":"#fafafa", cursor:"pointer", opacity: type==="om"?0.3:1 }),
       calDayNum:{ fontSize:11, fontWeight:700, color:C.textSecondary },
       pill:(color)=>({ display:"block", fontSize:9, padding:"1px 3px", borderRadius:2, marginTop:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", background: color==="trip"?"#27ae60":color==="hotel"?"#c0392b":color==="car"?"#8e44ad":color==="warn"?"#e67e22":"#2980b9", color:"#fff" }),
       detailBox:{ background:"#f8f9fa", borderRadius:8, padding:12, marginTop:8 },
@@ -209,39 +229,158 @@
       delBtn:{ border:"none", background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:15, padding:"0 2px", lineHeight:1 },
     };
 
+    // ── Token setup modal ─────────────────────────────────────────────────────
+    function TokenModal({ onSave }) {
+      const [val, setVal] = useState("");
+      const [err, setErr] = useState("");
+      const [testing, setTesting] = useState(false);
+
+      async function test() {
+        if (!val.trim()) return;
+        setTesting(true); setErr("");
+        try {
+          const r = await fetch(GH_API, { headers: { Authorization: `Bearer ${val.trim()}`, Accept: "application/vnd.github+json" } });
+          if (r.status === 404 || r.ok) { onSave(val.trim()); }
+          else if (r.status === 401) { setErr("Token not recognized — check it and try again."); }
+          else { setErr(`GitHub returned ${r.status}`); }
+        } catch { setErr("Network error — are you online?"); }
+        setTesting(false);
+      }
+
+      return (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:999, padding:20 }}>
+          <div style={{ background:"#fff", borderRadius:12, padding:24, maxWidth:460, width:"100%" }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:6, fontFamily:"'Playfair Display',serif" }}>🔐 Set up cross-device sync</div>
+            <div style={{ fontSize:13, color:C.textSecondary, marginBottom:16, lineHeight:1.6 }}>
+              Your purchases and task checkboxes are saved to GitHub so every device stays in sync. You need a free GitHub token — create one in about 60 seconds:
+            </div>
+            <ol style={{ fontSize:12, color:C.textSecondary, lineHeight:1.8, paddingLeft:18, marginBottom:16 }}>
+              <li>Go to <strong>github.com → Settings → Developer settings → Personal access tokens → Fine-grained tokens</strong></li>
+              <li>Click <strong>Generate new token</strong></li>
+              <li>Give it any name (e.g. "Road trip app"), set expiration to 90 days</li>
+              <li>Under <strong>Repository access</strong>, choose "Only select repositories" → pick <strong>Itinerary-Road-Trip-2026</strong></li>
+              <li>Under <strong>Permissions → Repository → Contents</strong>, choose <strong>Read and write</strong></li>
+              <li>Click <strong>Generate token</strong> and paste it below</li>
+            </ol>
+            <label style={S.label}>Your GitHub token</label>
+            <input
+              style={{ ...S.input, marginBottom:10, fontFamily:"monospace" }}
+              type="password"
+              placeholder="github_pat_..."
+              value={val}
+              onChange={e => setVal(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && test()}
+            />
+            {err && <div style={{ color:C.danger, fontSize:12, marginBottom:8 }}>{err}</div>}
+            <div style={{ display:"flex", gap:8 }}>
+              <button style={S.btnPrimary} onClick={test} disabled={testing}>{testing ? "Checking…" : "Save & connect"}</button>
+              <button style={S.btn} onClick={() => onSave(null)}>Skip (this device only)</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Sync status bar ───────────────────────────────────────────────────────
+    function SyncBar({ status, onSetupToken }) {
+      const colors = { idle:"#e6f2e6", saving:"#fff3cd", error:"#f8d7da", notoken:"#e8f4fd" };
+      const msgs = { idle:"✓ Synced", saving:"Saving…", error:"Sync failed — tap to retry", notoken:"Local only — tap to set up sync" };
+      return (
+        <div onClick={status === "notoken" || status === "error" ? onSetupToken : undefined}
+          style={{ background:colors[status]||colors.idle, padding:"5px 16px", fontSize:11, color:C.textSecondary, cursor: status==="notoken"||status==="error"?"pointer":"default", display:"flex", alignItems:"center", gap:6 }}>
+          {msgs[status]||msgs.idle}
+        </div>
+      );
+    }
+
     // ── Main App ──────────────────────────────────────────────────────────────
     function App() {
       const [tab, setTab] = useState("calendar");
       const [purchases, setPurchases] = useState([]);
       const [preTasks, setPreTasks] = useState(DEFAULT_PRE_TASKS);
       const [postTasks, setPostTasks] = useState(DEFAULT_POST_TASKS);
+      const [loaded, setLoaded] = useState(false);
+      const [syncStatus, setSyncStatus] = useState("idle");
+      const [showTokenModal, setShowTokenModal] = useState(false);
+      const shaRef = useRef(null);
+      const tokenRef = useRef(lsGet("wrt_token"));
+      const saveTimer = useRef(null);
 
       useEffect(() => {
-        const p = storageGet("wrt_purchases");
-        const pre = storageGet("wrt_pretasks");
-        const post = storageGet("wrt_posttasks");
-        if (p) setPurchases(p);
-        if (pre) setPreTasks(pre);
-        if (post) setPostTasks(post);
+        (async () => {
+          const token = lsGet("wrt_token");
+          if (!token) {
+            // Read-only from GitHub (public repo), no token needed for reads
+            const remote = await ghRead().catch(() => null);
+            if (remote) {
+              shaRef.current = remote.sha;
+              applyData(remote.data);
+            } else {
+              // Fall back to localStorage
+              const lp = lsGet("wrt_purchases"); const lpr = lsGet("wrt_pretasks"); const lpo = lsGet("wrt_posttasks");
+              if (lp) setPurchases(lp); if (lpr) setPreTasks(lpr); if (lpo) setPostTasks(lpo);
+            }
+            setSyncStatus("notoken");
+          } else {
+            tokenRef.current = token;
+            const remote = await ghRead().catch(() => null);
+            if (remote) { shaRef.current = remote.sha; applyData(remote.data); }
+            else { const lp = lsGet("wrt_purchases"); if (lp) setPurchases(lp); }
+            setSyncStatus("idle");
+          }
+          setLoaded(true);
+        })();
       }, []);
 
-      const savePurchases = useCallback((data) => {
-        setPurchases(data);
-        storageSet("wrt_purchases", data);
-      }, []);
+      function applyData(d) {
+        if (d.purchases) setPurchases(d.purchases);
+        if (d.preTasks)  setPreTasks(d.preTasks);
+        if (d.postTasks) setPostTasks(d.postTasks);
+      }
 
-      const savePreTasks = useCallback((data) => {
-        setPreTasks(data);
-        storageSet("wrt_pretasks", data);
-      }, []);
+      function scheduleSave(data) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => persistSave(data), 1500);
+      }
 
-      const savePostTasks = useCallback((data) => {
-        setPostTasks(data);
-        storageSet("wrt_posttasks", data);
-      }, []);
+      async function persistSave(data) {
+        lsSet("wrt_purchases", data.purchases);
+        lsSet("wrt_pretasks",  data.preTasks);
+        lsSet("wrt_posttasks", data.postTasks);
+        const token = tokenRef.current;
+        if (!token) { setSyncStatus("notoken"); return; }
+        setSyncStatus("saving");
+        try {
+          shaRef.current = await ghWrite(token, shaRef.current, data);
+          setSyncStatus("idle");
+        } catch(e) {
+          console.error(e);
+          setSyncStatus("error");
+        }
+      }
+
+      const saveAll = useCallback((updates) => {
+        const next = { purchases: updates.purchases ?? purchases, preTasks: updates.preTasks ?? preTasks, postTasks: updates.postTasks ?? postTasks };
+        if (updates.purchases !== undefined) setPurchases(updates.purchases);
+        if (updates.preTasks  !== undefined) setPreTasks(updates.preTasks);
+        if (updates.postTasks !== undefined) setPostTasks(updates.postTasks);
+        scheduleSave(next);
+      }, [purchases, preTasks, postTasks]);
+
+      function handleTokenSave(token) {
+        setShowTokenModal(false);
+        if (token) {
+          lsSet("wrt_token", token);
+          tokenRef.current = token;
+          persistSave({ purchases, preTasks, postTasks });
+        }
+      }
+
+      if (!loaded) return <div style={{ padding:32, color:C.textSecondary, fontFamily:"'Bitter',serif" }}>Loading your trip…</div>;
 
       return (
         <div style={S.app}>
+          {showTokenModal && <TokenModal onSave={handleTokenSave} />}
           <div style={S.header}>
             <div style={{ padding:"0 4px" }}>
               <div style={S.headerTitle}>🚗 Wengler Road Trip 2026</div>
@@ -253,12 +392,13 @@
               ))}
             </div>
           </div>
+          <SyncBar status={syncStatus} onSetupToken={() => setShowTokenModal(true)} />
           <div style={S.body}>
-            {tab === "calendar" && <CalendarTab purchases={purchases} preTasks={preTasks} postTasks={postTasks} />}
+            {tab === "calendar"  && <CalendarTab purchases={purchases} preTasks={preTasks} postTasks={postTasks} />}
             {tab === "itinerary" && <ItineraryTab purchases={purchases} />}
-            {tab === "hotels" && <HotelsTab />}
-            {tab === "budget" && <BudgetTab purchases={purchases} onSave={savePurchases} />}
-            {tab === "tasks" && <TasksTab preTasks={preTasks} postTasks={postTasks} onSavePre={savePreTasks} onSavePost={savePostTasks} />}
+            {tab === "hotels"    && <HotelsTab />}
+            {tab === "budget"    && <BudgetTab purchases={purchases} onSave={p => saveAll({ purchases:p })} />}
+            {tab === "tasks"     && <TasksTab preTasks={preTasks} postTasks={postTasks} onSavePre={t => saveAll({ preTasks:t })} onSavePost={t => saveAll({ postTasks:t })} />}
           </div>
         </div>
       );
@@ -379,7 +519,7 @@
           <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:12 }}>
             {TRIP_DAYS.map(t => (
               <button key={t.day} onClick={() => setActiveDay(t.day)}
-                style={{ padding:"4px 9px", border:`0.5px solid ${activeDay===t.day?C.accent:C.borderStrong}`, borderRadius:5, background: activeDay===t.day?C.accent:"transparent", color: activeDay===t.day?"#fff":C.textSecondary, cursor:"pointer", fontSize:12, fontFamily:"'Bitter',serif", fontWeight: activeDay===t.day?700:400 }}>
+                style={{ padding:"4px 9px", border:`0.5px solid ${activeDay===t.day?C.accent:C.borderStrong}`, borderRadius:5, background: activeDay===t.day?C.accent:"transparent", color: activeDay===t.day?"#fff":C.textSecondary, cursor:"pointer", fontSize:12, fontWeight: activeDay===t.day?700:400 }}>
                 {t.day}
               </button>
             ))}
@@ -485,10 +625,7 @@
         setPAmt(""); setPDesc(""); setShowForm(false);
       }
 
-      function del(i) {
-        const next = [...purchases]; next.splice(i, 1);
-        onSave(next);
-      }
+      function del(i) { const next = [...purchases]; next.splice(i,1); onSave(next); }
 
       return (
         <div style={S.section}>
@@ -535,14 +672,14 @@
           )}
           <div style={S.card}>
             {BUDGET_CATS.map(c => {
-              const s = spent[c.key] || 0, b = c.budget, pct = (s/b)*100, over = s > b;
+              const s = spent[c.key]||0, b = c.budget, pct=(s/b)*100, over=s>b;
               return (
                 <div key={c.key} style={S.budgetRow}>
                   <div style={{ minWidth:72, fontSize:13 }}>{c.label}</div>
-                  <div style={S.progressWrap}><div style={S.progressFill(pct, over)} /></div>
+                  <div style={S.progressWrap}><div style={S.progressFill(pct,over)} /></div>
                   <div style={{ textAlign:"right", minWidth:95 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color: over ? C.danger : C.textPrimary }}>${s.toFixed(2)} / ${b}</div>
-                    <div style={{ fontSize:11, color: over ? C.danger : C.textSecondary }}>${(b-s).toFixed(2)} {over?"over":"left"}</div>
+                    <div style={{ fontSize:13, fontWeight:600, color: over?C.danger:C.textPrimary }}>${s.toFixed(2)} / ${b}</div>
+                    <div style={{ fontSize:11, color: over?C.danger:C.textSecondary }}>${(b-s).toFixed(2)} {over?"over":"left"}</div>
                   </div>
                 </div>
               );
@@ -553,12 +690,12 @@
             {purchases.length === 0
               ? <div style={S.muted}>No purchases yet. Tap "Log purchase" to start tracking.</div>
               : [...purchases].reverse().map((p,ri) => {
-                  const i = purchases.length - 1 - ri;
-                  const bc = BUDGET_CATS.find(c => c.key === p.cat);
+                  const i = purchases.length-1-ri;
+                  const bc = BUDGET_CATS.find(c => c.key===p.cat);
                   return (
                     <div key={i} style={{ ...S.pRow, ...(ri===purchases.length-1?{borderBottom:"none"}:{}) }}>
-                      <span style={{ ...S.muted, minWidth:38 }}>{p.day ? `Day ${p.day}` : ""}</span>
-                      <span style={{ flex:1, margin:"0 8px" }}>{p.desc || "—"} <span style={S.muted}>{bc?.label}</span></span>
+                      <span style={{ ...S.muted, minWidth:38 }}>{p.day?`Day ${p.day}`:""}</span>
+                      <span style={{ flex:1, margin:"0 8px" }}>{p.desc||"—"} <span style={S.muted}>{bc?.label}</span></span>
                       <span style={{ fontWeight:700 }}>${parseFloat(p.amt).toFixed(2)}</span>
                       <button style={S.delBtn} onClick={() => del(i)}>×</button>
                     </div>
@@ -576,24 +713,15 @@
       const [newText, setNewText] = useState("");
       const [newDue, setNewDue] = useState("");
 
-      const tasks = activeTab === "pre" ? preTasks : postTasks;
-      const onSave = activeTab === "pre" ? onSavePre : onSavePost;
+      const tasks = activeTab==="pre" ? preTasks : postTasks;
+      const onSave = activeTab==="pre" ? onSavePre : onSavePost;
       const done = tasks.filter(t => t.done).length;
 
-      function toggle(i) {
-        const next = tasks.map((t,idx) => idx===i ? {...t, done:!t.done} : t);
-        onSave(next);
-      }
-
-      function del(i) {
-        const next = tasks.filter((_,idx) => idx !== i);
-        onSave(next);
-      }
-
+      function toggle(i) { onSave(tasks.map((t,idx) => idx===i ? {...t,done:!t.done} : t)); }
+      function del(i) { onSave(tasks.filter((_,idx) => idx!==i)); }
       function add() {
         if (!newText.trim()) return;
-        const next = [...tasks, { id:"u"+Date.now(), text:newText.trim(), due:newDue.trim(), done:false, fixed:false }];
-        onSave(next);
+        onSave([...tasks, { id:"u"+Date.now(), text:newText.trim(), due:newDue.trim(), done:false, fixed:false }]);
         setNewText(""); setNewDue("");
       }
 
@@ -602,13 +730,13 @@
           <div style={{ display:"flex", gap:8, marginBottom:12 }}>
             {[["pre","📋 Pre-trip"],["post","🏠 Post-trip"]].map(([id,label]) => (
               <button key={id} onClick={() => setActiveTab(id)}
-                style={{ ...S.btn, borderColor: activeTab===id ? C.accent : C.borderStrong, fontWeight: activeTab===id ? 700 : 400, color: activeTab===id ? C.accent : C.textPrimary }}>
+                style={{ ...S.btn, borderColor: activeTab===id?C.accent:C.borderStrong, fontWeight: activeTab===id?700:400, color: activeTab===id?C.accent:C.textPrimary }}>
                 {label}
               </button>
             ))}
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-            <div style={{ fontSize:15, fontWeight:700, fontFamily:"'Playfair Display',serif" }}>{activeTab==="pre" ? "Pre-trip tasks" : "Post-trip tasks"}</div>
+            <div style={{ fontSize:15, fontWeight:700, fontFamily:"'Playfair Display',serif" }}>{activeTab==="pre"?"Pre-trip tasks":"Post-trip tasks"}</div>
             <span style={S.muted}>{done}/{tasks.length} complete</span>
           </div>
           <div style={S.card}>
